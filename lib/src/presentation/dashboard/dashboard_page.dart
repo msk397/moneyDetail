@@ -99,15 +99,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final today = ref.watch(_todayTotalProvider(db));
     final month = ref.watch(_monthTotalProvider(db));
     final year = ref.watch(_yearTotalProvider(db));
-    final monthIncome = ref.watch(_monthIncomeTotalProvider(db));
-    final monthNet = ref.watch(_monthNetTotalProvider(db));
     final trend = ref.watch(_recent12MonthTrendProvider(db));
 
     final todayValue = today.value ?? 0;
-    final monthIncomeValue = monthIncome.value ?? 0;
     final monthValue = month.value ?? 0;
-    final monthNetValue = monthNet.value ?? 0;
-    final savingRate = monthIncomeValue <= 0 ? 0.0 : (monthNetValue / monthIncomeValue).clamp(-1.0, 1.0);
     final budget = _monthBudget;
     final budgetProgress = (budget == null || budget <= 0)
         ? null
@@ -136,12 +131,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [
-          _HeroOverview(
-            amount: month.value ?? 0,
-            income: monthIncomeValue,
-            net: monthNetValue,
-            savingRate: savingRate,
-          ),
+          _HeroOverview(amount: month.value ?? 0),
           const SizedBox(height: 12),
           _BudgetProgressCard(
             budget: budget,
@@ -214,17 +204,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 }
 
 class _HeroOverview extends StatelessWidget {
-  const _HeroOverview({
-    required this.amount,
-    required this.income,
-    required this.net,
-    required this.savingRate,
-  });
+  const _HeroOverview({required this.amount});
 
   final double amount;
-  final double income;
-  final double net;
-  final double savingRate;
 
   @override
   Widget build(BuildContext context) {
@@ -261,23 +243,7 @@ class _HeroOverview extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            children: [
-              Text('收入 ¥${income.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.white)),
-              Text(
-                '结余 ${net >= 0 ? '+' : '-'}¥${net.abs().toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.white),
-              ),
-              Text(
-                '储蓄率 ${(savingRate * 100).toStringAsFixed(1)}%',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
+
         ],
       ),
     );
@@ -368,14 +334,6 @@ final _monthTotalProvider = StreamProvider.family<double, AppDatabase>((ref, db)
 
 final _yearTotalProvider = StreamProvider.family<double, AppDatabase>((ref, db) {
   return db.watchYearTotal();
-});
-
-final _monthIncomeTotalProvider = StreamProvider.family<double, AppDatabase>((ref, db) {
-  return db.watchMonthIncomeTotal();
-});
-
-final _monthNetTotalProvider = StreamProvider.family<double, AppDatabase>((ref, db) {
-  return db.watchMonthNetTotal();
 });
 
 final _recent12MonthTrendProvider =
