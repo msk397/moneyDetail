@@ -125,10 +125,6 @@ class AdviceTriggerService {
     final monthExpense = monthRows
         .where((e) => e.amount > 0)
         .fold<double>(0, (sum, e) => sum + e.amount);
-    final monthIncome = monthRows
-        .where((e) => e.amount < 0)
-        .fold<double>(0, (sum, e) => sum + (-e.amount));
-    final monthNet = monthIncome - monthExpense;
     final budgetRaw = await settings.read(SecureSettingsStore.monthlyBudgetKey);
     final monthBudget = double.tryParse(budgetRaw);
 
@@ -136,7 +132,6 @@ class AdviceTriggerService {
       return {
         'title': e.title,
         'amount': e.amount,
-        'direction': e.amount < 0 ? 'income' : 'expense',
         'category': e.category,
         'spentAt': e.spentAt.toIso8601String(),
       };
@@ -146,14 +141,12 @@ class AdviceTriggerService {
 你是一名财务规划助手。请基于以下账单数据给出 3 条可执行建议。
 要求：
 1. 每条建议明确到行为层面，不要空话。
-2. 至少包含 1 条“增收/收入稳定”建议，1 条“控支”建议。
-3. 结合本月收支、预算执行情况与分类占比。
+2. 建议重点围绕“控支、预算执行、分类优化”。
+3. 结合本月支出、预算执行情况与分类占比。
 4. 结尾给出一段“下周执行清单”（3-5 条）。
 
 本月概要：
-- 本月收入：$monthIncome
 - 本月支出：$monthExpense
-- 本月结余：$monthNet
 - 本月总预算：${monthBudget ?? '未设置'}
 
 账单数据：

@@ -22,6 +22,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   final _deepSeekModelController = TextEditingController(text: 'deepseek-chat');
 
   bool _loading = true;
+  bool _syncing = false;
+  double? _syncProgress;
+  String _syncMessage = '';
 
   @override
   void initState() {
@@ -215,18 +218,66 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: () async {
-              final summary = await ref.read(syncServiceProvider).syncAll();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('同步完成：推送 ${summary.pushed} 条，拉取 ${summary.pulled} 条'),
-                ),
-              );
-            },
+            onPressed: _syncing
+                ? null
+                : () async {
+                    setState(() {
+                      _syncing = true;
+                      _syncProgress = 0;
+                      _syncMessage = '准备开始同步...';
+                    });
+                    try {
+                      final summary = await ref.read(syncServiceProvider).syncAll(
+                        onProgress: (progress) {
+                          if (!mounted) return;
+                          setState(() {
+                            _syncProgress = progress.value;
+                            _syncMessage = progress.message;
+                          });
+                        },
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('同步完成：推送 ${summary.pushed} 条，拉取 ${summary.pulled} 条'),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('同步失败：$e')),
+                      );
+                    } finally {
+                      if (mounted) {
+                        setState(() {
+                          _syncing = false;
+                          _syncProgress = null;
+                        });
+                      }
+                    }
+                  },
             icon: const Icon(Icons.sync),
-            label: const Text('立即同步'),
+            label: Text(_syncing ? '同步中...' : '立即同步'),
           ),
+          if (_syncing || _syncMessage.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _syncMessage.isEmpty ? '同步进行中...' : _syncMessage,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: _syncProgress),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _testNotion,

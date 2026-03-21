@@ -76,6 +76,7 @@ class AppDatabase extends _$AppDatabase {
     return customSelect(
       sql,
       variables: [Variable<DateTime>(start), Variable<DateTime>(end)],
+      readsFrom: {expenses},
     ).watchSingle().map((row) => row.read<double>('total'));
   }
 
@@ -161,6 +162,7 @@ class AppDatabase extends _$AppDatabase {
     return customSelect(
       sql,
       variables: [Variable<DateTime>(start), Variable<DateTime>(end)],
+      readsFrom: {expenses},
     ).watchSingle().map((row) => row.read<double>('total'));
   }
 
@@ -177,6 +179,7 @@ class AppDatabase extends _$AppDatabase {
     return customSelect(
       sql,
       variables: [Variable<DateTime>(start), Variable<DateTime>(end)],
+      readsFrom: {expenses},
     ).watchSingle().map((row) => row.read<double>('total'));
   }
 

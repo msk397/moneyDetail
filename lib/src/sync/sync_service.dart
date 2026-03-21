@@ -32,6 +32,14 @@ class SyncService {
   final SecureSettingsStore settings;
   final NotionApiClient notionApiClient;
 
+  void _emitProgress(
+    void Function(SyncProgress progress)? onProgress, {
+    required String message,
+    double? value,
+  }) {
+    onProgress?.call(SyncProgress(message: message, value: value));
+  }
+
   Future<String> debugPreviewNotionResponse() async {
     final notionToken = await settings.read(SecureSettingsStore.notionTokenKey);
     final databaseId =
@@ -55,7 +63,7 @@ class SyncService {
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  Future<int> syncPendingCreates() async {
+  Future<int> syncPendingCreates({void Function(SyncProgress progress)? onProgress}) async {
     final notionToken = await settings.read(SecureSettingsStore.notionTokenKey);
     final databaseId =
         await settings.read(SecureSettingsStore.notionDatabaseIdKey);
@@ -67,7 +75,14 @@ class SyncService {
           ..where((tbl) => tbl.syncState.equals('PENDING_CREATE')))
         .get();
 
+    _emitProgress(
+      onProgress,
+      message: '正在推送本地账单到 Notion（0/${pending.length}）',
+      value: pending.isEmpty ? 0.5 : 0.05,
+    );
+
     var pushed = 0;
+    var processed = 0;
     for (final expense in pending) {
       try {
         final notionPageId = await notionApiClient.createPage(
@@ -98,13 +113,21 @@ class SyncService {
         pushed += 1;
       } catch (_) {
         // Keep pending state for the next background sync attempt.
+      } finally {
+        processed += 1;
+        final ratio = pending.isEmpty ? 1.0 : processed / pending.length;
+        _emitProgress(
+          onProgress,
+          message: '正在推送本地账单到 Notion（$processed/${pending.length}）',
+          value: 0.05 + 0.45 * ratio,
+        );
       }
     }
 
     return pushed;
   }
 
-  Future<int> pullAllFromNotion() async {
+  Future<int> pullAllFromNotion({void Function(SyncProgress progress)? onProgress}) async {
     final notionToken = await settings.read(SecureSettingsStore.notionTokenKey);
     final databaseId =
         await settings.read(SecureSettingsStore.notionDatabaseIdKey);
@@ -120,8 +143,21 @@ class SyncService {
     var reachedLastPulledId = false;
     String? newestSeenId;
     var firstPage = true;
+    var page = 0;
+
+    _emitProgress(
+      onProgress,
+      message: '开始从 Notion 拉取数据...',
+      value: null,
+    );
 
     while (hasMore && !reachedLastPulledId) {
+      page += 1;
+      _emitProgress(
+        onProgress,
+        message: '正在拉取 Notion 第 $page 页（已导入 $pulled 条）',
+        value: null,
+      );
       final result = await notionApiClient.queryDatabasePages(
         token: notionToken,
         databaseId: databaseId,
@@ -163,6 +199,13 @@ class SyncService {
           note: title,
         );
         pulled += 1;
+        if (pulled % 20 == 0) {
+          _emitProgress(
+            onProgress,
+            message: '正在拉取 Notion 数据（已导入 $pulled 条）',
+            value: null,
+          );
+        }
       }
 
       hasMore = result.hasMore;
@@ -173,12 +216,20 @@ class SyncService {
       await settings.save(SecureSettingsStore.notionLastPulledIdKey, newestSeenId);
     }
 
+    _emitProgress(
+      onProgress,
+      message: '拉取完成（共导入 $pulled 条）',
+      value: 0.95,
+    );
+
     return pulled;
   }
 
-  Future<SyncSummary> syncAll() async {
-    final pushed = await syncPendingCreates();
-    final pulled = await pullAllFromNotion();
+  Future<SyncSummary> syncAll({void Function(SyncProgress progress)? onProgress}) async {
+    _emitProgress(onProgress, message: '准备开始同步...', value: 0.0);
+    final pushed = await syncPendingCreates(onProgress: onProgress);
+    final pulled = await pullAllFromNotion(onProgress: onProgress);
+    _emitProgress(onProgress, message: '同步完成', value: 1.0);
     return SyncSummary(pushed: pushed, pulled: pulled);
   }
 
@@ -218,4 +269,11 @@ class SyncSummary {
 
   final int pushed;
   final int pulled;
+}
+
+class SyncProgress {
+  SyncProgress({required this.message, this.value});
+
+  final String message;
+  final double? value;
 }
