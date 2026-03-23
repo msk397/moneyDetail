@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'home_scaffold.dart';
+import '../widget/app_motion.dart';
 
 class MoneyDetailApp extends StatelessWidget {
   const MoneyDetailApp({super.key, this.initialTab = 0});
@@ -75,6 +76,7 @@ class MoneyDetailApp extends StatelessWidget {
             ),
           ),
         ),
+        pageTransitionsTheme: AppMotion.pageTransitionsTheme,
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
@@ -134,6 +136,7 @@ class MoneyDetailApp extends StatelessWidget {
             ),
           ),
         ),
+        pageTransitionsTheme: AppMotion.pageTransitionsTheme,
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -8,6 +9,7 @@ import '../../infrastructure/db/app_database.dart';
 import '../../infrastructure/db/db_provider.dart';
 import '../../infrastructure/settings/secure_settings_store.dart';
 import '../../infrastructure/settings/settings_provider.dart';
+import '../../widget/app_motion.dart';
 import '../../widget/widget_bridge.dart';
 import '../monthly/monthly_detail_page.dart';
 
@@ -66,11 +68,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               onPressed: () {
                 final parsed = double.tryParse(controller.text.trim());
                 if (parsed == null || parsed < 0) {
+                  HapticFeedback.heavyImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('请输入有效预算金额')),
                   );
                   return;
                 }
+                HapticFeedback.selectionClick();
                 Navigator.of(context).pop(parsed);
               },
               child: const Text('保存'),
@@ -85,11 +89,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     if (value <= 0) {
       await settings.save(SecureSettingsStore.monthlyBudgetKey, '');
       if (!mounted) return;
+      HapticFeedback.mediumImpact();
       setState(() => _monthBudget = null);
       return;
     }
     await settings.save(SecureSettingsStore.monthlyBudgetKey, value.toString());
     if (!mounted) return;
+    HapticFeedback.mediumImpact();
     setState(() => _monthBudget = value);
   }
 
@@ -131,69 +137,86 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [
-          _HeroOverview(amount: month.value ?? 0),
+          AppEntrance(
+            child: _HeroOverview(amount: month.value ?? 0),
+          ),
           const SizedBox(height: 12),
-          _BudgetProgressCard(
-            budget: budget,
-            spent: monthValue,
-            progress: budgetProgress,
-            isOverBudget: isOverBudget,
-            onEditBudget: _editBudget,
+          AppEntrance(
+            delay: const Duration(milliseconds: 60),
+            child: _BudgetProgressCard(
+              budget: budget,
+              spent: monthValue,
+              progress: budgetProgress,
+              isOverBudget: isOverBudget,
+              onEditBudget: _editBudget,
+            ),
           ),
           const SizedBox(height: 16),
-          _TotalCard(
-            title: '本日花费',
-            subtitle: '今天已经花了',
-            icon: Icons.today_outlined,
-            color: const Color(0xFF0EA5A4),
-            amount: todayValue,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.today),
+          AppEntrance(
+            delay: const Duration(milliseconds: 110),
+            child: _TotalCard(
+              title: '本日花费',
+              subtitle: '今天已经花了',
+              icon: Icons.today_outlined,
+              color: const Color(0xFF0EA5A4),
+              amount: todayValue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.today),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 10),
-          _TotalCard(
-            title: '本月花费',
-            subtitle: '本月累计支出',
-            icon: Icons.calendar_month_outlined,
-            color: const Color(0xFF3B82F6),
-            amount: monthValue,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.month),
+          AppEntrance(
+            delay: const Duration(milliseconds: 150),
+            child: _TotalCard(
+              title: '本月花费',
+              subtitle: '本月累计支出',
+              icon: Icons.calendar_month_outlined,
+              color: const Color(0xFF3B82F6),
+              amount: monthValue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.month),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 10),
-          _TotalCard(
-            title: '本年花费',
-            subtitle: '本年累计支出',
-            icon: Icons.insights_outlined,
-            color: const Color(0xFFF97316),
-            amount: year.value ?? 0,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.year),
+          AppEntrance(
+            delay: const Duration(milliseconds: 190),
+            child: _TotalCard(
+              title: '本年花费',
+              subtitle: '本年累计支出',
+              icon: Icons.insights_outlined,
+              color: const Color(0xFFF97316),
+              amount: year.value ?? 0,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.year),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('近 12 个月花费', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 180,
-                    width: double.infinity,
-                    child: _TrendLineChart(points: trend.value ?? const []),
-                  ),
-                ],
+          AppEntrance(
+            delay: const Duration(milliseconds: 240),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('近 12 个月花费', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 180,
+                      width: double.infinity,
+                      child: _TrendLineChart(points: trend.value ?? const []),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -362,7 +385,10 @@ class _TotalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(14),

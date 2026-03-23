@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ import '../../application/expense_service.dart';
 import '../../domain/expense_category.dart';
 import '../../infrastructure/db/db_provider.dart';
 import '../../sync/sync_service.dart';
+import '../../widget/app_motion.dart';
 import '../../widget/widget_bridge.dart';
 
 class QuickEntryPage extends ConsumerStatefulWidget {
@@ -21,22 +23,35 @@ class QuickEntryPage extends ConsumerStatefulWidget {
 class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
   static const _phrasePrefsKey = 'quick_entry_custom_phrases';
   final _controller = TextEditingController();
+  final _inputFocusNode = FocusNode();
   List<String> _quickPhrases = const [
     '早餐豆浆油条 12 元',
     '地铁+打车一共 24',
     '买课程花了 299',
   ];
   bool _loading = false;
+  bool _inputFocused = false;
 
   @override
   void initState() {
     super.initState();
+    _inputFocusNode.addListener(_handleInputFocusChange);
     _loadQuickPhrases();
     _consumeWidgetQuickInput();
   }
 
+  void _handleInputFocusChange() {
+    if (!mounted) return;
+    setState(() {
+      _inputFocused = _inputFocusNode.hasFocus;
+    });
+  }
+
   @override
   void dispose() {
+    _inputFocusNode
+      ..removeListener(_handleInputFocusChange)
+      ..dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -54,6 +69,7 @@ class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
 
       if (parseResult.deepSeekFailed) {
         if (mounted) {
+          HapticFeedback.lightImpact();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('DeepSeek 暂时不可用，已切换本地规则解析')),
           );
@@ -77,6 +93,7 @@ class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
       await WidgetBridge.updateTotals(today: today, month: month);
       unawaited(_syncPendingCreatesInBackground());
       if (mounted) {
+        HapticFeedback.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('记账成功，云同步后台处理中')),
         );
@@ -142,6 +159,7 @@ class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
 
     if (phrase == null || phrase.isEmpty) return;
     if (_quickPhrases.contains(phrase)) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _quickPhrases = [..._quickPhrases, phrase];
     });
@@ -278,11 +296,13 @@ class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
                   onPressed: () {
                     final amount = double.tryParse(amountController.text.trim()) ?? 0;
                     if (titleController.text.trim().isEmpty || amount <= 0) {
+                      HapticFeedback.heavyImpact();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('请填写有效标题和金额')),
                       );
                       return;
                     }
+                    HapticFeedback.mediumImpact();
                     Navigator.of(context).pop(
                       draft.copyWith(
                         title: titleController.text.trim(),
@@ -311,97 +331,149 @@ class _QuickEntryPageState extends ConsumerState<QuickEntryPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF0369A1)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(22),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '记账',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  '输入一句话，自动识别金额与分类',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ],
-            ),
+          const AppEntrance(
+            child: _EntryHeroCard(),
           ),
           const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _controller,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: '输入自然语言账单内容',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '常用短句',
-                          style: Theme.of(context).textTheme.titleSmall,
+          AppEntrance(
+            delay: const Duration(milliseconds: 80),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedContainer(
+                      duration: AppMotion.medium,
+                      curve: AppMotion.enterCurve,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          if (_inputFocused)
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.18),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _inputFocusNode,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          hintText: '输入自然语言账单内容',
+                          border: OutlineInputBorder(),
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: _addQuickPhrase,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('自定义'),
-                      ),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _quickPhrases
-                        .map(
-                          (text) => _ExampleChip(
-                            text: text,
-                            onTap: () => _controller.text = text,
-                            onDelete: () async {
-                              setState(() {
-                                _quickPhrases =
-                                    _quickPhrases.where((it) => it != text).toList();
-                              });
-                              await _saveQuickPhrases();
-                            },
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '常用短句',
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
-                        )
-                        .toList(),
-                  ),
-                ],
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            HapticFeedback.selectionClick();
+                            _addQuickPhrase();
+                          },
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('自定义'),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _quickPhrases
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) => AppEntrance(
+                              delay: Duration(milliseconds: 100 + entry.key * 35),
+                              child: _ExampleChip(
+                                text: entry.value,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  _controller.text = entry.value;
+                                  _inputFocusNode.requestFocus();
+                                },
+                                onDelete: () async {
+                                  HapticFeedback.lightImpact();
+                                  setState(() {
+                                    _quickPhrases = _quickPhrases
+                                        .where((it) => it != entry.value)
+                                        .toList();
+                                  });
+                                  await _saveQuickPhrases();
+                                },
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _loading ? null : _submit,
-              icon: const Icon(Icons.send_outlined),
-              label: Text(_loading ? '处理中...' : '记一笔'),
+          AppEntrance(
+            delay: const Duration(milliseconds: 150),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _loading
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick();
+                        _submit();
+                      },
+                icon: const Icon(Icons.send_outlined),
+                label: Text(_loading ? '处理中...' : '记一笔'),
+              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EntryHeroCard extends StatelessWidget {
+  const _EntryHeroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F766E), Color(0xFF0369A1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '记账',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            '输入一句话，自动识别金额与分类',
+            style: TextStyle(color: Colors.white70),
           ),
         ],
       ),
