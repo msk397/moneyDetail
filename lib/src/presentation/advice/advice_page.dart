@@ -30,7 +30,16 @@ class _AdvicePageState extends ConsumerState<AdvicePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('消费建议')),
+      appBar: AppBar(
+        title: const Text('消费建议'),
+        actions: [
+          IconButton(
+            onPressed: () => _refresh(force: true),
+            icon: const Icon(Icons.auto_awesome_outlined),
+            tooltip: '重新分析',
+          ),
+        ],
+      ),
       body: FutureBuilder<AdviceResult>(
         future: _future,
         builder: (context, snapshot) {
@@ -38,12 +47,24 @@ class _AdvicePageState extends ConsumerState<AdvicePage> {
             return const _AdviceLoadingState();
           }
           if (snapshot.hasError) {
-            return Center(child: Text('建议生成失败：${snapshot.error}'));
+            return AppStatePanel(
+              icon: Icons.auto_awesome_outlined,
+              title: '建议生成失败',
+              message: snapshot.error.toString(),
+              action: () => _refresh(force: true),
+              actionLabel: '重新分析',
+            );
           }
 
           final result = snapshot.data;
           if (result == null) {
-            return const Center(child: Text('暂无建议'));
+            return AppStatePanel(
+              icon: Icons.lightbulb_outline,
+              title: '暂无建议',
+              message: '当前还没有可展示的建议，稍后可以重新分析一次。',
+              action: () => _refresh(force: true),
+              actionLabel: '立即分析',
+            );
           }
 
           return AppEntrance(
@@ -93,11 +114,6 @@ class _AdvicePageState extends ConsumerState<AdvicePage> {
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _refresh(force: true),
-        label: const Text('重新分析'),
-        icon: const Icon(Icons.auto_awesome),
       ),
     );
   }

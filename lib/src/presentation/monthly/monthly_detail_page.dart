@@ -83,15 +83,23 @@ class _YearExpenseOverviewPage extends ConsumerWidget {
         stream: db.watchExpensesInRange(start, end),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _MonthlyLoadingState();
           }
           if (snapshot.hasError) {
-            return Center(child: Text('加载失败：${snapshot.error}'));
+            return AppStatePanel(
+              icon: Icons.error_outline,
+              title: '加载失败',
+              message: snapshot.error.toString(),
+            );
           }
 
           final expenses = snapshot.data ?? const <Expense>[];
           if (expenses.isEmpty) {
-            return const Center(child: Text('本年还没有记录'));
+            return const AppStatePanel(
+              icon: Icons.calendar_month_outlined,
+              title: '本年还没有记录',
+              message: '继续记几笔后，这里会展示全年汇总和月份趋势。',
+            );
           }
 
           final monthMap = <DateTime, List<Expense>>{};
@@ -200,15 +208,23 @@ class _RangeExpenseDetailPageState extends ConsumerState<_RangeExpenseDetailPage
         stream: db.watchExpensesInRange(widget.start, widget.end),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _MonthlyLoadingState();
           }
           if (snapshot.hasError) {
-            return Center(child: Text('加载失败：${snapshot.error}'));
+            return AppStatePanel(
+              icon: Icons.error_outline,
+              title: '加载失败',
+              message: snapshot.error.toString(),
+            );
           }
 
           final expenses = snapshot.data ?? const <Expense>[];
           if (expenses.isEmpty) {
-            return const Center(child: Text('暂无记录'));
+            return const AppStatePanel(
+              icon: Icons.receipt_long_outlined,
+              title: '暂无记录',
+              message: '当前时间范围内还没有账单，记一笔后这里会自动刷新。',
+            );
           }
 
           final categories = <String>{'全部', ...expenses.map((e) => e.category)}.toList();
@@ -331,6 +347,44 @@ class _RangeExpenseDetailPageState extends ConsumerState<_RangeExpenseDetailPage
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _MonthlyLoadingState extends StatelessWidget {
+  const _MonthlyLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      child: AppPulsePlaceholder(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 132,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (var i = 0; i < 5; i++) ...[
+              Container(
+                width: double.infinity,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
       ),
     );
   }

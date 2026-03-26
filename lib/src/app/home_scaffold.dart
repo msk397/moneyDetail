@@ -43,7 +43,12 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   Future<void> _selectTab(int value) async {
     if (value == _index) return;
     HapticFeedback.selectionClick();
+    final distance = (value - _index).abs();
     setState(() => _index = value);
+    if (distance > 1) {
+      _pageController.jumpToPage(value);
+      return;
+    }
     await _pageController.animateToPage(
       value,
       duration: AppMotion.slow,
@@ -55,7 +60,10 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navBg = isDark ? const Color(0xFF151D24) : Colors.white;
+    final navBg = Color.alphaBlend(
+      scheme.primary.withOpacity(isDark ? 0.10 : 0.04),
+      scheme.surfaceVariant,
+    );
 
     return Scaffold(
       body: PageView(
@@ -66,12 +74,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
             setState(() => _index = value);
           }
         },
-        children: const [
-          DashboardPage(),
-          QuickEntryPage(),
-          AdvicePage(),
-          SettingsPage(),
-        ],
+        children: _pages,
       ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -80,7 +83,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+              color: scheme.shadow.withOpacity(isDark ? 0.30 : 0.10),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),

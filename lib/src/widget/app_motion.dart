@@ -94,6 +94,74 @@ class AppPulsePlaceholder extends StatefulWidget {
   State<AppPulsePlaceholder> createState() => _AppPulsePlaceholderState();
 }
 
+class AppStatePanel extends StatelessWidget {
+  const AppStatePanel({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.action,
+    this.actionLabel,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? action;
+  final String? actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: scheme.onPrimaryContainer),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                if (action != null && actionLabel != null) ...[
+                  const SizedBox(height: 14),
+                  FilledButton.icon(
+                    onPressed: action,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(actionLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AppPulsePlaceholderState extends State<AppPulsePlaceholder>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
