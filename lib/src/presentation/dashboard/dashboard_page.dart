@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -8,6 +10,7 @@ import '../../infrastructure/db/app_database.dart';
 import '../../infrastructure/db/db_provider.dart';
 import '../../infrastructure/settings/secure_settings_store.dart';
 import '../../infrastructure/settings/settings_provider.dart';
+import '../../widget/app_motion.dart';
 import '../../widget/widget_bridge.dart';
 import '../monthly/monthly_detail_page.dart';
 
@@ -66,11 +69,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               onPressed: () {
                 final parsed = double.tryParse(controller.text.trim());
                 if (parsed == null || parsed < 0) {
+                  HapticFeedback.heavyImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('请输入有效预算金额')),
                   );
                   return;
                 }
+                HapticFeedback.selectionClick();
                 Navigator.of(context).pop(parsed);
               },
               child: const Text('保存'),
@@ -85,16 +90,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     if (value <= 0) {
       await settings.save(SecureSettingsStore.monthlyBudgetKey, '');
       if (!mounted) return;
+      HapticFeedback.mediumImpact();
       setState(() => _monthBudget = null);
       return;
     }
     await settings.save(SecureSettingsStore.monthlyBudgetKey, value.toString());
     if (!mounted) return;
+    HapticFeedback.mediumImpact();
     setState(() => _monthBudget = value);
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final db = ref.watch(appDatabaseProvider);
     final today = ref.watch(_todayTotalProvider(db));
     final month = ref.watch(_monthTotalProvider(db));
@@ -118,7 +126,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         leading: Padding(
           padding: const EdgeInsets.only(left: 12, top: 8, bottom: 8),
           child: CircleAvatar(
-            backgroundColor: Colors.white,
+            backgroundColor: scheme.surface,
             backgroundImage: const AssetImage('assets/images/avatar_logo.jpg'),
             onBackgroundImageError: (_, __) {},
           ),
@@ -131,69 +139,91 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [
-          _HeroOverview(amount: month.value ?? 0),
+          AppEntrance(
+            child: _HeroOverview(
+              amount: month.value ?? 0,
+              startColor: Color.lerp(scheme.primary, scheme.tertiary, 0.25)!,
+              endColor: Color.lerp(scheme.primary, scheme.secondary, 0.15)!,
+              shadowColor: scheme.primary,
+            ),
+          ),
           const SizedBox(height: 12),
-          _BudgetProgressCard(
-            budget: budget,
-            spent: monthValue,
-            progress: budgetProgress,
-            isOverBudget: isOverBudget,
-            onEditBudget: _editBudget,
+          AppEntrance(
+            delay: const Duration(milliseconds: 60),
+            child: _BudgetProgressCard(
+              budget: budget,
+              spent: monthValue,
+              progress: budgetProgress,
+              isOverBudget: isOverBudget,
+              onEditBudget: _editBudget,
+            ),
           ),
           const SizedBox(height: 16),
-          _TotalCard(
-            title: '本日花费',
-            subtitle: '今天已经花了',
-            icon: Icons.today_outlined,
-            color: const Color(0xFF0EA5A4),
-            amount: todayValue,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.today),
+          AppEntrance(
+            delay: const Duration(milliseconds: 110),
+            child: _TotalCard(
+              title: '本日花费',
+              subtitle: '今天已经花了',
+              icon: Icons.today_outlined,
+              color: scheme.tertiary,
+              amount: todayValue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.today),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 10),
-          _TotalCard(
-            title: '本月花费',
-            subtitle: '本月累计支出',
-            icon: Icons.calendar_month_outlined,
-            color: const Color(0xFF3B82F6),
-            amount: monthValue,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.month),
+          AppEntrance(
+            delay: const Duration(milliseconds: 150),
+            child: _TotalCard(
+              title: '本月花费',
+              subtitle: '本月累计支出',
+              icon: Icons.calendar_month_outlined,
+              color: scheme.primary,
+              amount: monthValue,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.month),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 10),
-          _TotalCard(
-            title: '本年花费',
-            subtitle: '本年累计支出',
-            icon: Icons.insights_outlined,
-            color: const Color(0xFFF97316),
-            amount: year.value ?? 0,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.year),
+          AppEntrance(
+            delay: const Duration(milliseconds: 190),
+            child: _TotalCard(
+              title: '本年花费',
+              subtitle: '本年累计支出',
+              icon: Icons.insights_outlined,
+              color: scheme.secondary,
+              amount: year.value ?? 0,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const MonthlyDetailPage(period: ExpensePeriodType.year),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 14),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('近 12 个月花费', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 180,
-                    width: double.infinity,
-                    child: _TrendLineChart(points: trend.value ?? const []),
-                  ),
-                ],
+          AppEntrance(
+            delay: const Duration(milliseconds: 240),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('近 12 个月花费', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 180,
+                      width: double.infinity,
+                      child: _TrendLineChart(points: trend.value ?? const []),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -204,9 +234,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 }
 
 class _HeroOverview extends StatelessWidget {
-  const _HeroOverview({required this.amount});
+  const _HeroOverview({
+    required this.amount,
+    required this.startColor,
+    required this.endColor,
+    required this.shadowColor,
+  });
 
   final double amount;
+  final Color startColor;
+  final Color endColor;
+  final Color shadowColor;
 
   @override
   Widget build(BuildContext context) {
@@ -214,14 +252,14 @@ class _HeroOverview extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF115E59), Color(0xFF0E7490)],
+        gradient: LinearGradient(
+          colors: [startColor, endColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0E7490).withOpacity(0.25),
+            color: shadowColor.withOpacity(0.25),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -230,9 +268,9 @@ class _HeroOverview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '本月收支总览',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 14),
           ),
           const SizedBox(height: 6),
           Text(
@@ -267,57 +305,86 @@ class _BudgetProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '本月预算',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: onEditBudget,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: Text(budget == null ? '设置预算' : '修改预算'),
-                ),
-              ],
+    final scheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: AppMotion.medium,
+      curve: AppMotion.enterCurve,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          if (isOverBudget)
+            BoxShadow(
+              color: scheme.error.withOpacity(0.14),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            if (budget == null) ...[
-              const Text('未设置总预算，点击右上角手动输入即可开启预算进度。'),
-            ] else ...[
-              Text('预算 ¥${budget!.toStringAsFixed(2)} · 已花 ¥${spent.toStringAsFixed(2)}'),
-              const SizedBox(height: 8),
-              LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                borderRadius: BorderRadius.circular(999),
-                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isOverBudget
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.primary,
-                ),
+        ],
+      ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '本月预算',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: onEditBudget,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(budget == null ? '设置预算' : '修改预算'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                isOverBudget
-                    ? '超预算提醒：已超出 ¥${(spent - budget!).toStringAsFixed(2)}'
-                    : '预算进度：${((progress ?? 0) * 100).toStringAsFixed(1)}%',
-                style: TextStyle(
-                  color: isOverBudget
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isOverBudget ? FontWeight.w600 : FontWeight.normal,
-                ),
+              AnimatedSwitcher(
+                duration: AppMotion.medium,
+                child: budget == null
+                    ? const Text(
+                        '未设置总预算，点击右上角手动输入即可开启预算进度。',
+                        key: ValueKey('budget-empty'),
+                      )
+                    : Column(
+                        key: const ValueKey('budget-content'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('预算 ¥${budget!.toStringAsFixed(2)} · 已花 ¥${spent.toStringAsFixed(2)}'),
+                          const SizedBox(height: 8),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0, end: progress ?? 0),
+                            duration: AppMotion.slow,
+                            curve: AppMotion.enterCurve,
+                            builder: (context, animatedValue, child) {
+                              return LinearProgressIndicator(
+                                value: animatedValue,
+                                minHeight: 10,
+                                borderRadius: BorderRadius.circular(999),
+                                backgroundColor: scheme.surfaceVariant,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isOverBudget ? scheme.error : scheme.primary,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            isOverBudget
+                                ? '超预算提醒：已超出 ¥${(spent - budget!).toStringAsFixed(2)}'
+                                : '预算进度：${((progress ?? 0) * 100).toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              color: isOverBudget ? scheme.error : scheme.onSurfaceVariant,
+                              fontWeight: isOverBudget ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -362,7 +429,10 @@ class _TotalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -418,15 +488,37 @@ class _TrendLineChart extends StatefulWidget {
   State<_TrendLineChart> createState() => _TrendLineChartState();
 }
 
-class _TrendLineChartState extends State<_TrendLineChart> {
+class _TrendLineChartState extends State<_TrendLineChart>
+    with SingleTickerProviderStateMixin {
   int? _selectedIndex;
-  bool _tooltipLocked = false;
+  late AnimationController _revealCtrl;
+  late Animation<double> _revealAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _revealCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _revealAnim = CurvedAnimation(
+      parent: _revealCtrl,
+      curve: Curves.easeOutCubic,
+    );
+    _revealCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _revealCtrl.dispose();
+    super.dispose();
+  }
 
   List<Offset> _buildChartPoints(Size size, List<double> values) {
-    const topPad = 12.0;
-    const bottomPad = 24.0;
-    const leftPad = 8.0;
-    const rightPad = 8.0;
+    const topPad = 20.0;
+    const bottomPad = 28.0;
+    const leftPad = 10.0;
+    const rightPad = 10.0;
     final chartHeight = size.height - topPad - bottomPad;
     final chartWidth = size.width - leftPad - rightPad;
     if (chartHeight <= 0 || chartWidth <= 0 || values.isEmpty) return const [];
@@ -435,25 +527,11 @@ class _TrendLineChartState extends State<_TrendLineChart> {
     final safeMax = maxValue <= 0 ? 1.0 : maxValue;
     final points = <Offset>[];
     for (var i = 0; i < values.length; i++) {
-      final x = leftPad + chartWidth * (values.length == 1 ? 0 : i / (values.length - 1));
+      final x = leftPad + chartWidth * (values.length == 1 ? 0.5 : i / (values.length - 1));
       final y = topPad + chartHeight * (1 - (values[i] / safeMax));
       points.add(Offset(x, y));
     }
     return points;
-  }
-
-  int _nearestPointIndex(List<Offset> points, Offset position) {
-    if (points.isEmpty) return -1;
-    var minDistance = double.infinity;
-    var hit = -1;
-    for (var i = 0; i < points.length; i++) {
-      final d = (points[i] - position).distance;
-      if (d < minDistance) {
-        minDistance = d;
-        hit = i;
-      }
-    }
-    return hit;
   }
 
   int _nearestPointByX(List<Offset> points, double x) {
@@ -474,16 +552,20 @@ class _TrendLineChartState extends State<_TrendLineChart> {
   Widget build(BuildContext context) {
     final points = widget.points;
     if (points.isEmpty) {
-      return const Center(child: Text('暂无数据'));
+      return const AppStatePanel(
+        icon: Icons.show_chart,
+        title: '暂无趋势数据',
+        message: '继续记账后，这里会展示最近 12 个月的支出走势。',
+      );
     }
+
+    final scheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
         final values = points.map((e) => e.total).toList();
-        final chartPoints = _buildChartPoints(
-          Size(constraints.maxWidth, constraints.maxHeight),
-          values,
-        );
+        final chartPoints = _buildChartPoints(size, values);
 
         final selected = (_selectedIndex != null && _selectedIndex! < points.length)
             ? points[_selectedIndex!]
@@ -492,104 +574,69 @@ class _TrendLineChartState extends State<_TrendLineChart> {
             ? chartPoints[_selectedIndex!]
             : null;
 
-        return CustomPaint(
-          size: Size(constraints.maxWidth, constraints.maxHeight),
-          painter: _TrendPainter(
-            values: values,
-            lineColor: Theme.of(context).colorScheme.primary,
-            fillColor: Theme.of(context).colorScheme.primary.withOpacity(0.10),
-            gridColor: Theme.of(context).colorScheme.outlineVariant,
-          ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (details) {
-              if (_tooltipLocked || chartPoints.isEmpty) return;
-              final hit = _nearestPointIndex(chartPoints, details.localPosition);
-              if (hit >= 0) {
-                setState(() {
-                  _selectedIndex = hit;
-                });
-              }
-            },
-            onLongPressStart: (details) {
-              if (chartPoints.isEmpty) return;
-              final hit = _nearestPointIndex(chartPoints, details.localPosition);
-              if (hit >= 0) {
-                setState(() {
-                  _selectedIndex = hit;
-                  _tooltipLocked = true;
-                });
-              }
-            },
-            onLongPressMoveUpdate: (details) {
-              if (!_tooltipLocked || chartPoints.isEmpty) return;
-              final hit = _nearestPointIndex(chartPoints, details.localPosition);
-              if (hit >= 0 && hit != _selectedIndex) {
-                setState(() {
-                  _selectedIndex = hit;
-                });
-              }
-            },
-            onHorizontalDragUpdate: (details) {
-              if (!_tooltipLocked || chartPoints.isEmpty) return;
-              final localX = details.localPosition.dx;
-              final hit = _nearestPointByX(chartPoints, localX);
-              if (hit >= 0 && hit != _selectedIndex) {
-                setState(() {
-                  _selectedIndex = hit;
-                });
-              }
-            },
-            onDoubleTap: () {
-              if (!_tooltipLocked) return;
-              setState(() {
-                _tooltipLocked = false;
-                _selectedIndex = null;
-              });
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            if (chartPoints.isEmpty) return;
+            final hit = _nearestPointByX(chartPoints, details.localPosition.dx);
+            setState(() {
+              _selectedIndex = (hit == _selectedIndex) ? null : hit;
+            });
+            HapticFeedback.selectionClick();
+          },
+          onHorizontalDragUpdate: (details) {
+            if (chartPoints.isEmpty) return;
+            final hit = _nearestPointByX(chartPoints, details.localPosition.dx);
+            if (hit >= 0 && hit != _selectedIndex) {
+              setState(() => _selectedIndex = hit);
+              HapticFeedback.selectionClick();
+            }
+          },
+          child: AnimatedBuilder(
+            animation: _revealAnim,
+            builder: (context, child) {
+              return CustomPaint(
+                size: size,
+                painter: _TrendPainter(
+                  values: values,
+                  points: chartPoints,
+                  selectedIndex: _selectedIndex,
+                  primaryColor: scheme.primary,
+                  surfaceColor: scheme.surface,
+                  gridColor: scheme.outlineVariant,
+                  progress: _revealAnim.value,
+                ),
+                child: child,
+              );
             },
             child: Stack(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                // 月份刻度
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  bottom: 4,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Spacer(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(DateFormat('yy/MM').format(points.first.monthStart)),
-                          Text(DateFormat('yy/MM').format(points.last.monthStart)),
-                        ],
+                      Text(
+                        DateFormat('yy/MM').format(points.first.monthStart),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                      Text(
+                        DateFormat('yy/MM').format(points.last.monthStart),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
                       ),
                     ],
                   ),
                 ),
+                // 悬浮 Tooltip
                 if (selected != null && selectedOffset != null)
-                  Positioned(
-                    left: math.max(4, math.min(selectedOffset.dx - 62, constraints.maxWidth - 124)),
-                    top: math.max(4, selectedOffset.dy - 54),
-                    child: Material(
-                      color: Theme.of(context).colorScheme.surface,
-                      elevation: 2,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        child: DefaultTextStyle(
-                          style: Theme.of(context).textTheme.bodySmall ?? const TextStyle(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('x: ${DateFormat('yyyy-MM').format(selected.monthStart)}'),
-                              Text('y: ¥${selected.total.toStringAsFixed(2)}'),
-                              if (_tooltipLocked)
-                                const Text('已锁定，左右滑动切换；双击取消'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildTooltip(context, selected, selectedOffset, constraints, scheme),
               ],
             ),
           ),
@@ -597,51 +644,109 @@ class _TrendLineChartState extends State<_TrendLineChart> {
       },
     );
   }
+
+  Widget _buildTooltip(
+    BuildContext context,
+    MonthlySpendPoint point,
+    Offset offset,
+    BoxConstraints constraints,
+    ColorScheme scheme,
+  ) {
+    const cardW = 110.0;
+    const cardH = 52.0;
+    // 优先显示在点上方，空间不足则显示在下方
+    double top = offset.dy - cardH - 10;
+    if (top < 4) top = offset.dy + 14;
+    final left = (offset.dx - cardW / 2).clamp(4.0, constraints.maxWidth - cardW - 4);
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: Material(
+          key: ValueKey(point.monthStart),
+          color: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                width: cardW,
+                height: cardH,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceVariant.withOpacity(0.90),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withOpacity(0.5),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('yyyy 年 MM 月').format(point.monthStart),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '¥ ${point.total.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: scheme.primary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TrendPainter extends CustomPainter {
   _TrendPainter({
     required this.values,
-    required this.lineColor,
-    required this.fillColor,
+    required this.points,
+    required this.selectedIndex,
+    required this.primaryColor,
+    required this.surfaceColor,
     required this.gridColor,
+    required this.progress,
   });
 
   final List<double> values;
-  final Color lineColor;
-  final Color fillColor;
+  final List<Offset> points;
+  final int? selectedIndex;
+  final Color primaryColor;
+  final Color surfaceColor;
   final Color gridColor;
+  final double progress;
+
+  static const topPad = 20.0;
+  static const bottomPad = 28.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
+    if (values.isEmpty || points.isEmpty) return;
 
-    const topPad = 12.0;
-    const bottomPad = 24.0;
-    const leftPad = 8.0;
-    const rightPad = 8.0;
-    final chartHeight = size.height - topPad - bottomPad;
-    final chartWidth = size.width - leftPad - rightPad;
-    if (chartHeight <= 0 || chartWidth <= 0) return;
-
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
-    final safeMax = maxValue <= 0 ? 1.0 : maxValue;
-
+    // ---- 网格线（虚线风格） ----
     final gridPaint = Paint()
-      ..color = gridColor.withOpacity(0.35)
-      ..strokeWidth = 1;
-    for (var i = 0; i <= 3; i++) {
-      final y = topPad + chartHeight * (i / 3);
-      canvas.drawLine(Offset(leftPad, y), Offset(size.width - rightPad, y), gridPaint);
+      ..color = gridColor.withOpacity(0.28)
+      ..strokeWidth = 0.8;
+    for (var i = 1; i <= 2; i++) {
+      final y = topPad + (size.height - topPad - bottomPad) * (i / 3);
+      _drawDashedLine(canvas, Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    final points = <Offset>[];
-    for (var i = 0; i < values.length; i++) {
-      final x = leftPad + chartWidth * (values.length == 1 ? 0 : i / (values.length - 1));
-      final y = topPad + chartHeight * (1 - (values[i] / safeMax));
-      points.add(Offset(x, y));
-    }
-
+    // ---- 构建曲线路径 ----
     final linePath = Path()..moveTo(points.first.dx, points.first.dy);
     for (var i = 1; i < points.length; i++) {
       final prev = points[i - 1];
@@ -650,34 +755,96 @@ class _TrendPainter extends CustomPainter {
       linePath.cubicTo(midX, prev.dy, midX, curr.dy, curr.dx, curr.dy);
     }
 
+    // ---- 渐变填充 ----
+    final baseY = size.height - bottomPad;
     final fillPath = Path.from(linePath)
-      ..lineTo(points.last.dx, size.height - bottomPad)
-      ..lineTo(points.first.dx, size.height - bottomPad)
+      ..lineTo(points.last.dx, baseY)
+      ..lineTo(points.first.dx, baseY)
       ..close();
 
-    canvas.drawPath(fillPath, Paint()..color = fillColor);
+    final gradientPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(0, topPad),
+        Offset(0, baseY),
+        [
+          primaryColor.withOpacity(0.22 * progress),
+          primaryColor.withOpacity(0.0),
+        ],
+      );
+    canvas.drawPath(fillPath, gradientPaint);
+
+    // ---- 绘制折线（带进度） ----
+    final pathMetric = linePath.computeMetrics().firstOrNull;
+    final visiblePath = pathMetric == null
+        ? linePath
+        : pathMetric.extractPath(0, pathMetric.length * progress.clamp(0.0, 1.0));
+
     canvas.drawPath(
-      linePath,
+      visiblePath,
       Paint()
-        ..color = lineColor
+        ..color = primaryColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6,
+        ..strokeWidth = 2.8
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
     );
 
-    for (final p in points) {
-      canvas.drawCircle(p, 3.2, Paint()..color = lineColor);
-      canvas.drawCircle(p, 1.6, Paint()..color = Colors.white);
+    // ---- 数据点 ----
+    final visibleCount = math.max(1, (points.length * progress).ceil());
+    for (var i = 0; i < visibleCount && i < points.length; i++) {
+      final p = points[i];
+      final isSelected = i == selectedIndex;
+      final dotRadius = isSelected ? 5.5 : 3.5;
+      // 外圈白色
+      canvas.drawCircle(
+          p, dotRadius + 1.5, Paint()..color = surfaceColor.withOpacity(progress));
+      // 实心圆
+      canvas.drawCircle(
+          p,
+          dotRadius,
+          Paint()..color = isSelected ? primaryColor : primaryColor.withOpacity(0.7 * progress));
+      // 选中时还画一个半透明光晕
+      if (isSelected) {
+        canvas.drawCircle(
+          p,
+          dotRadius + 5,
+          Paint()..color = primaryColor.withOpacity(0.18),
+        );
+      }
+    }
+
+    // ---- 选中垂直指示线 ----
+    if (selectedIndex != null && selectedIndex! < points.length) {
+      final sel = points[selectedIndex!];
+      canvas.drawLine(
+        Offset(sel.dx, topPad),
+        Offset(sel.dx, baseY),
+        Paint()
+          ..color = primaryColor.withOpacity(0.25)
+          ..strokeWidth = 1.2,
+      );
+    }
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const dashLen = 4.0;
+    const gapLen = 4.0;
+    final total = (end - start).distance;
+    final dir = (end - start) / total;
+    var drawn = 0.0;
+    while (drawn < total) {
+      final segEnd = math.min(drawn + dashLen, total);
+      canvas.drawLine(start + dir * drawn, start + dir * segEnd, paint);
+      drawn += dashLen + gapLen;
     }
   }
 
   @override
-  bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    if (values.length != oldDelegate.values.length) return true;
-    for (var i = 0; i < values.length; i++) {
-      if (values[i] != oldDelegate.values[i]) return true;
-    }
-    return lineColor != oldDelegate.lineColor ||
-        fillColor != oldDelegate.fillColor ||
-        gridColor != oldDelegate.gridColor;
+  bool shouldRepaint(covariant _TrendPainter old) {
+    return progress != old.progress ||
+        selectedIndex != old.selectedIndex ||
+        primaryColor != old.primaryColor ||
+        gridColor != old.gridColor ||
+        values.length != old.values.length;
   }
 }

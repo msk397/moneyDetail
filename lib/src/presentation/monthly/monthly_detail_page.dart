@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../infrastructure/db/app_database.dart';
 import '../../infrastructure/db/db_provider.dart';
+import '../../widget/app_motion.dart';
 
 enum ExpensePeriodType { today, month, year }
 
@@ -81,15 +83,23 @@ class _YearExpenseOverviewPage extends ConsumerWidget {
         stream: db.watchExpensesInRange(start, end),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _MonthlyLoadingState();
           }
           if (snapshot.hasError) {
-            return Center(child: Text('加载失败：${snapshot.error}'));
+            return AppStatePanel(
+              icon: Icons.error_outline,
+              title: '加载失败',
+              message: snapshot.error.toString(),
+            );
           }
 
           final expenses = snapshot.data ?? const <Expense>[];
           if (expenses.isEmpty) {
-            return const Center(child: Text('本年还没有记录'));
+            return const AppStatePanel(
+              icon: Icons.calendar_month_outlined,
+              title: '本年还没有记录',
+              message: '继续记几笔后，这里会展示全年汇总和月份趋势。',
+            );
           }
 
           final monthMap = <DateTime, List<Expense>>{};
@@ -105,18 +115,22 @@ class _YearExpenseOverviewPage extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
             children: [
-              Card(
-                child: ListTile(
-                  title: const Text('全年总花费'),
-                  subtitle: Text('${expenses.length} 笔'),
-                  trailing: Text(
-                    '¥${yearTotal.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.titleMedium,
+              AppEntrance(
+                child: Card(
+                  child: ListTile(
+                    title: const Text('全年总花费'),
+                    subtitle: Text('${expenses.length} 笔'),
+                    trailing: Text(
+                      '¥${yearTotal.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
-              ...months.map((monthStart) {
+              ...months.asMap().entries.map((entry) {
+                final index = entry.key;
+                final monthStart = entry.value;
                 final items = monthMap[monthStart]!;
                 final total = items.fold<double>(0, (sum, e) => sum + e.amount);
                 final percent = yearTotal <= 0 ? 0 : (total / yearTotal * 100);
@@ -132,23 +146,27 @@ class _YearExpenseOverviewPage extends ConsumerWidget {
                         .first
                         .key;
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    title: Text(DateFormat('yyyy年M月').format(monthStart)),
-                    subtitle: Text('${items.length} 笔 · 主要分类: $topCategory · ${percent.toStringAsFixed(1)}%'),
-                    trailing: Text('¥${total.toStringAsFixed(2)}'),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => _RangeExpenseDetailPage(
-                            title: DateFormat('yyyy年M月明细').format(monthStart),
-                            start: monthStart,
-                            end: DateTime(monthStart.year, monthStart.month + 1, 1),
+                return AppEntrance(
+                  delay: Duration(milliseconds: 70 + index * 35),
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      title: Text(DateFormat('yyyy年M月').format(monthStart)),
+                      subtitle: Text('${items.length} 笔 · 主要分类: $topCategory · ${percent.toStringAsFixed(1)}%'),
+                      trailing: Text('¥${total.toStringAsFixed(2)}'),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _RangeExpenseDetailPage(
+                              title: DateFormat('yyyy年M月明细').format(monthStart),
+                              start: monthStart,
+                              end: DateTime(monthStart.year, monthStart.month + 1, 1),
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 );
               }),
@@ -190,15 +208,23 @@ class _RangeExpenseDetailPageState extends ConsumerState<_RangeExpenseDetailPage
         stream: db.watchExpensesInRange(widget.start, widget.end),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const _MonthlyLoadingState();
           }
           if (snapshot.hasError) {
-            return Center(child: Text('加载失败：${snapshot.error}'));
+            return AppStatePanel(
+              icon: Icons.error_outline,
+              title: '加载失败',
+              message: snapshot.error.toString(),
+            );
           }
 
           final expenses = snapshot.data ?? const <Expense>[];
           if (expenses.isEmpty) {
-            return const Center(child: Text('暂无记录'));
+            return const AppStatePanel(
+              icon: Icons.receipt_long_outlined,
+              title: '暂无记录',
+              message: '当前时间范围内还没有账单，记一笔后这里会自动刷新。',
+            );
           }
 
           final categories = <String>{'全部', ...expenses.map((e) => e.category)}.toList();
@@ -219,99 +245,146 @@ class _RangeExpenseDetailPageState extends ConsumerState<_RangeExpenseDetailPage
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: categories.contains(_categoryFilter)
-                                  ? _categoryFilter
-                                  : '全部',
-                              decoration: const InputDecoration(
-                                labelText: '分类筛选',
-                                border: OutlineInputBorder(),
+              AppEntrance(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: categories.contains(_categoryFilter)
+                                    ? _categoryFilter
+                                    : '全部',
+                                decoration: const InputDecoration(
+                                  labelText: '分类筛选',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: categories
+                                    .map(
+                                      (c) => DropdownMenuItem<String>(
+                                        value: c,
+                                        child: Text(c),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _categoryFilter = value);
+                                },
                               ),
-                              items: categories
-                                  .map(
-                                    (c) => DropdownMenuItem<String>(
-                                      value: c,
-                                      child: Text(c),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() => _categoryFilter = value);
-                              },
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: DropdownButtonFormField<ExpenseSortType>(
-                              value: _sortType,
-                              decoration: const InputDecoration(
-                                labelText: '排序',
-                                border: OutlineInputBorder(),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: DropdownButtonFormField<ExpenseSortType>(
+                                value: _sortType,
+                                decoration: const InputDecoration(
+                                  labelText: '排序',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: ExpenseSortType.values
+                                    .map(
+                                      (s) => DropdownMenuItem(
+                                        value: s,
+                                        child: Text(_sortLabel(s)),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _sortType = value);
+                                },
                               ),
-                              items: ExpenseSortType.values
-                                  .map(
-                                    (s) => DropdownMenuItem(
-                                      value: s,
-                                      child: Text(_sortLabel(s)),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() => _sortType = value);
-                              },
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text('共 ${filtered.length} 笔 · ¥${total.toStringAsFixed(2)}'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: sortedCategory
-                            .map(
-                              (e) => Chip(
-                                label: Text('${e.key} ¥${e.value.toStringAsFixed(2)}'),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text('共 ${filtered.length} 笔 · ¥${total.toStringAsFixed(2)}'),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: sortedCategory
+                              .map(
+                                (e) => Chip(
+                                  label: Text('${e.key} ¥${e.value.toStringAsFixed(2)}'),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
-              ...filtered.map(
-                (item) => Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    title: Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              ...filtered.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                return AppEntrance(
+                  delay: Duration(milliseconds: 70 + index * 25),
+                  child: Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      title: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${item.category} · ${DateFormat('MM-dd HH:mm').format(item.spentAt)}',
+                      ),
+                      trailing: Text('¥${item.amount.toStringAsFixed(2)}'),
                     ),
-                    subtitle: Text(
-                      '${item.category} · ${DateFormat('MM-dd HH:mm').format(item.spentAt)}',
-                    ),
-                    trailing: Text('¥${item.amount.toStringAsFixed(2)}'),
                   ),
-                ),
-              ),
+                );
+              }),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _MonthlyLoadingState extends StatelessWidget {
+  const _MonthlyLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      child: AppPulsePlaceholder(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              height: 132,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (var i = 0; i < 5; i++) ...[
+              Container(
+                width: double.infinity,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
       ),
     );
   }

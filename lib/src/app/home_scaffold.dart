@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../presentation/advice/advice_page.dart';
 import '../presentation/dashboard/dashboard_page.dart';
 import '../presentation/entry/quick_entry_page.dart';
 import '../presentation/settings/settings_page.dart';
+import '../widget/app_motion.dart';
 
 class HomeScaffold extends StatefulWidget {
   const HomeScaffold({super.key, this.initialTab = 0});
@@ -16,6 +18,7 @@ class HomeScaffold extends StatefulWidget {
 
 class _HomeScaffoldState extends State<HomeScaffold> {
   late int _index;
+  late final PageController _pageController;
 
   static const _pages = [
     DashboardPage(),
@@ -28,16 +31,51 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   void initState() {
     super.initState();
     _index = widget.initialTab.clamp(0, _pages.length - 1);
+    _pageController = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectTab(int value) async {
+    if (value == _index) return;
+    HapticFeedback.selectionClick();
+    final distance = (value - _index).abs();
+    setState(() => _index = value);
+    if (distance > 1) {
+      _pageController.jumpToPage(value);
+      return;
+    }
+    await _pageController.animateToPage(
+      value,
+      duration: AppMotion.slow,
+      curve: AppMotion.emphasizedCurve,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navBg = isDark ? const Color(0xFF151D24) : Colors.white;
+    final navBg = Color.alphaBlend(
+      scheme.primary.withOpacity(isDark ? 0.10 : 0.04),
+      scheme.surfaceVariant,
+    );
 
     return Scaffold(
-      body: _pages[_index],
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (value) {
+          if (value != _index) {
+            setState(() => _index = value);
+          }
+        },
+        children: _pages,
+      ),
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
@@ -45,7 +83,7 @@ class _HomeScaffoldState extends State<HomeScaffold> {
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+              color: scheme.shadow.withOpacity(isDark ? 0.30 : 0.10),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -57,7 +95,8 @@ class _HomeScaffoldState extends State<HomeScaffold> {
             backgroundColor: navBg,
             indicatorColor: scheme.primaryContainer,
             selectedIndex: _index,
-            onDestinationSelected: (value) => setState(() => _index = value),
+            animationDuration: AppMotion.medium,
+            onDestinationSelected: _selectTab,
             destinations: const [
               NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: '总览'),
               NavigationDestination(icon: Icon(Icons.edit_note_outlined), label: '记账'),
